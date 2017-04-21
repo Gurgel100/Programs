@@ -21,11 +21,14 @@ export CFLAGS
 export LDFLAGS
 
 .PHONY: all
-all: $(DIRS)
+all: bin $(DIRS)
 
 .PHONY: release
 release:
 	$(MAKE) BUILD_CONFIG=$@
+
+bin:
+	mkdir -p bin
 
 .PHONY: $(DIRS)
 $(DIRS):
