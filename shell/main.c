@@ -6,15 +6,17 @@
  */
 
 #include "main.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "stdint.h"
-#include "userlib.h"
-#include "math.h"
-#include "dirent.h"
-#include "string.h"
-#include "ctype.h"
-#include "syscall.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <userlib.h>
+#include <math.h>
+#include <dirent.h>
+#include <string.h>
+#include <ctype.h>
+#include <syscall.h>
+#include <assert.h>
+#include "suggestions.h"
 
 typedef struct{
 	const char *cmd;
@@ -43,6 +45,8 @@ static const command_t commands[] = {
 
 int main(int argc, char *argv[])
 {
+	suggestions_t suggestions;
+	bool last_character_was_tab = false;
 	size_t cmd_size = 0;
 	char *cmd = calloc(cmd_size + 1, 1);
 	printf("Willkommen bei YourOS V0.1\n");
@@ -52,6 +56,8 @@ int main(int argc, char *argv[])
 	while(true)
 	{
 		char c = getchar();
+		bool last_tab = last_character_was_tab;
+		last_character_was_tab = false;
 		switch(c)
 		{
 			case '\n':
@@ -69,6 +75,51 @@ int main(int argc, char *argv[])
 					cmd[cmd_size] = '\0';
 					putchar(c);
 				}
+			break;
+			case '\t':
+				get_suggestions(cmd, &suggestions);
+				if(suggestions.num > 1)
+				{
+					if(suggestions.shortest_suggestion != NULL)
+					{
+						//Add suggestion prefix to command
+						size_t suggestion_len = strlen(suggestions.shortest_suggestion);
+						cmd = realloc(cmd, cmd_size + suggestion_len + 1);
+						cmd_size += suggestion_len;
+						strcat(cmd, suggestions.suggestions[0].suggestion);
+						//Print suggestion prefix
+						printf("%s", suggestions.shortest_suggestion);
+					}
+					else if(last_tab)
+					{
+						puts("");
+						for(size_t i = 0; i < suggestions.num; i++)
+							printf("%s%s\t", &cmd[cmd_size - suggestions.suggestions[i].prefix_len], suggestions.suggestions[i].suggestion);
+						printf("\n>%s", cmd);
+					}
+				}
+				else if(suggestions.num == 1)
+				{
+					//Add suggestion to command
+					char *extra_sug;
+					switch(suggestions.suggestions[0].type) {
+						case SUG_PATH:
+							//Add '/'
+							extra_sug = "/";
+						break;
+						default:
+							extra_sug = "";
+					}
+					size_t suggestion_len = strlen(suggestions.suggestions[0].suggestion) + strlen(extra_sug);
+					cmd = realloc(cmd, cmd_size + suggestion_len + 1);
+					cmd_size += suggestion_len;
+					strcat(cmd, suggestions.suggestions[0].suggestion);
+					strcat(cmd, extra_sug);
+					//Print suggestion
+					printf("%s%s", suggestions.suggestions[0].suggestion, extra_sug);
+				}
+				free_suggestions(&suggestions);
+				last_character_was_tab = true;
 			break;
 			default:
 				cmd = realloc(cmd, cmd_size + 2);
