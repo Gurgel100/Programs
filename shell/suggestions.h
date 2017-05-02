@@ -24,4 +24,7 @@ typedef struct{
 	suggestion_entry_t *suggestions;
 }suggestions_t;
 
+void get_suggestions(const char *input, suggestions_t *suggestions);
+void free_suggestions(suggestions_t *suggestions);
+
 #endif /* SUGGESTIONS_H_ */
