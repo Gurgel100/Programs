@@ -65,13 +65,13 @@ void parseFile(FILE *fp)
 				}
 				else if(i == 1)
 				{
-					printf("Created %lu on this console\n", createProcess(binpath, buffer));
+					printf("Created %lu on this console\n", createProcess(binpath, buffer, NULL, NULL, NULL, NULL));
 				}
 				else
 				{
 					char *console;
 					asprintf(&console, "/dev/tty%.2lu", i);
-					printf("Created %lu on new console\n", syscall_createProcess(binpath, buffer, console, console, console));
+					printf("Created %lu on new console\n", createProcess(binpath, buffer, NULL, console, console, console));
 					free(console);
 				}
 			}
