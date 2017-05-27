@@ -21,7 +21,7 @@
 typedef struct{
 	const char *cmd;
 	const char *desc;
-	void (*func)(const char*);
+	void (*func)(const char**, size_t);
 }command_t;
 
 void command(char *cmd);
@@ -29,10 +29,10 @@ double c;
 
 static void help();
 static void info();
-static void ls(const char*);
-static void cat(const char*);
-static void mount(const char*);
-static void unmount(const char*);
+static void ls(const char**, size_t);
+static void cat(const char**, size_t);
+static void mount(const char**, size_t);
+static void unmount(const char**, size_t);
 static const command_t commands[] = {
 		{"help", "Gibt diese Hilfe aus", help},
 		{"info", "Gibt Systeminformationen aus", info},
@@ -153,16 +153,17 @@ static void info()
 			"Freier Speicher: %lu Bytes\n", sysinf.Uptime, sysinf.physSpeicher, sysinf.physFree);
 }
 
-static void ls(const char *arg)
+static void ls(const char **args, size_t arg_count)
 {
 	struct dirent **dirents;
-	while(isspace(*arg)) arg++;
 
-	if(strlen(arg) == 0)
+	if(arg_count == 0)
 	{
 		printf("No arguments specified\n");
 		return;
 	}
+	
+	const char *arg = args[0];
 
 	int size = scandir(arg, &dirents, NULL, alphasort);
 	if(size == -1)
@@ -197,97 +198,277 @@ static void ls(const char *arg)
 	}
 }
 
-static void cat(const char *arg)
+static void cat(const char **args, size_t arg_count)
 {
 	int c;
 	FILE *fp;
-	while(isspace(*arg)) arg++;
 
-	if(strlen(arg) == 0)
+	if(arg_count == 0)
 	{
 		printf("No arguments specified\n");
 		return;
 	}
 
-	fp = fopen(arg, "r");
-
-	if(fp == NULL)
+	for(size_t i = 0; i < arg_count; i++)
 	{
-		printf("Could not open %s\n", arg);
-		return;
-	}
+		const char *arg = args[i];
+		while(isspace(*arg)) arg++;
 
-	while((c = getc(fp)) != EOF)
-	{
-		putchar(c);
-	}
+		fp = fopen(arg, "r");
 
-	fclose(fp);
-	puts("");
+		if(fp == NULL)
+		{
+			printf("Could not open %s\n", arg);
+			return;
+		}
+
+		while((c = getc(fp)) != EOF)
+		{
+			putchar(c);
+		}
+
+		fclose(fp);
+		puts("");
+	}
 }
 
-static void mount(const char *arg)
+static void mount(const char **args, size_t arg_count)
 {
-	if(strlen(arg) == 0)
+	if(arg_count < 2)
 	{
-		printf("No arguments specified\n");
+		printf("Usage: mount [device] [mountpoint]\n");
 		return;
 	}
 
-	char *mountpoint = strtok(arg, " ");
-	char *device = strtok(NULL, " ");
-
-	if(mountpoint == NULL)
-	{
-		printf("No mountpoint specified!\n");
-		return;
-	}
-	if(device == NULL)
-	{
-		printf("No device specified!\n");
-		return;
-	}
+	const char *device = args[0];
+	const char *mountpoint = args[1];
 
 	printf("Trying to mount %s in %s\n", device, mountpoint);
 	int status = syscall_mount(mountpoint, device);
 	printf("mount return value: %i\n", status);
 }
 
-static void unmount(const char *arg)
+static void unmount(const char **args, size_t arg_count)
 {
-	while(isspace(*arg)) arg++;
-
-	if(strlen(arg) == 0)
+	if(arg_count == 0)
 	{
-		printf("No arguments specified\n");
+		printf("Usage: umount [mountpoint]\n");
 		return;
 	}
 
-	printf("Trying to unmount %s\n", arg);
-	int status = syscall_unmount(arg);
+	printf("Trying to unmount %s\n", args[0]);
+	int status = syscall_unmount(args[0]);
 	printf("unmount return value: %i\n", status);
+}
+
+static const char *get_end_of_env(const char *env)
+{
+	if(isdigit(*env))
+		return env + 1;
+	while(isalnum(*env) || *env == '_') env++;
+	return env;
+}
+
+static bool add_token(const char *token, char ***tokens, size_t *token_count)
+{
+	if(strlen(token) > 0)
+	{
+		char **new_tokens = realloc(*tokens, (*token_count + 1) * sizeof(char**));
+		if(new_tokens == NULL)
+		{
+			printf("An error occured during parsing: out of memory!\n");
+			return false;
+		}
+		*tokens = new_tokens;
+		(*tokens)[*token_count] = strdup(token);
+		if((*tokens)[*token_count] == NULL)
+		{
+			printf("An error occured during parsing: out of memory!\n");
+			return false;
+		}
+		(*token_count)++;
+	}
+	return true;
+}
+
+static size_t tokenize(const char *cmd, char ***tokens)
+{
+	size_t token_count = 0;
+	bool escape = false;	//indicates that '\' was the previous character
+	char quotes = '\0';
+	size_t current_token_len = strlen(cmd);
+	char *current_token = malloc(current_token_len + 1);
+	size_t current_index = 0;
+	*tokens = NULL;
+
+	while(*cmd != '\0')
+	{
+		switch(*cmd)
+		{
+			case '\\':
+				if(escape)
+				{
+					current_token[current_index++] = '\\';
+					escape = false;
+				}
+				else
+					escape = true;
+			break;
+			case ' ':
+				if(!escape && quotes == '\0')
+				{
+					current_token[current_index] = '\0';
+					if(!add_token(current_token, tokens, &token_count))
+						goto error;
+					current_index = 0;
+				}
+				else
+				{
+					current_token[current_index++] = ' ';
+					escape = false;
+				}
+			break;
+			case '\"':
+				if(escape)
+				{
+					current_token[current_index++] = '\'';
+					escape = false;
+				}
+				else
+				{
+					switch(quotes)
+					{
+						case '\0':
+							quotes = '\"';
+						break;
+						case '\"':
+							quotes = '\0';
+						break;
+						case '\'':
+							current_token[current_index++] = '\"';
+						break;
+					}
+				}
+			break;
+			case '\'':
+				if(escape)
+				{
+					current_token[current_index++] = '\'';
+					escape = false;
+				}
+				else
+				{
+					switch(quotes)
+					{
+						case '\0':
+							quotes = '\'';
+						break;
+						case '\'':
+							quotes = '\0';
+						break;
+						case '\"':
+							current_token[current_index++] = '\'';
+						break;
+					}
+				}
+			break;
+			case '$':
+				if(!escape)
+				{
+					char *env;
+					const char *env_end;
+					if(*(cmd + 1) == '?')
+					{
+						env_end = cmd + 2;
+						int size = snprintf(NULL, 0, "%i", last_exit_code) + 1;
+						env = __builtin_alloca(size);
+						snprintf(env, size, "%i", last_exit_code);
+					}
+					else
+					{
+						env_end = get_end_of_env(cmd + 1);
+						char env_name[env_end - (cmd + 1) + 1];
+						strncpy(env_name, cmd + 1, env_end - (cmd + 1));
+						env_name[env_end - (cmd + 1)] = '\0';
+						env = getenv(env_name);
+					}
+					if(env != NULL)
+					{
+						size_t env_len = strlen(env);
+						size_t max_len = current_index + env_len + strlen(cmd + 1);
+						if(max_len > current_token_len)
+						{
+							char *new_token = realloc(current_token, max_len);
+							if(new_token == NULL)
+							{
+								fputs("Could not allocate memory for inserting environment variable\n", stderr);
+								goto error;
+							}
+							current_token = new_token;
+							current_token_len = max_len;
+						}
+						memcpy(&current_token[current_index], env, env_len);
+						current_index += env_len;
+					}
+					//subtract 1 because we add 1 at the end of the loop
+					cmd = env_end - 1;
+					break;
+				}
+			break;
+			default:
+				current_token[current_index++] = *cmd;
+				escape = false;
+			break;
+		}
+		cmd++;
+	}
+
+	current_token[current_index] = '\0';
+	if(!add_token(current_token, tokens, &token_count))
+		goto error;
+
+	free(current_token);
+
+	return token_count;
+
+error:
+	for(size_t i = 0; i < token_count; i++)
+		free((*tokens)[i]);
+	free(*tokens);
+	free(current_token);
+	return 0;
 }
 
 void command(char *cmd)
 {
+	char **tokens;
+	size_t token_count;
 	const command_t *cmds = commands;
 	bool found = false;
-	if(cmd == NULL)
+	if(cmd == NULL || strlen(cmd) == 0)
 		return;
-	while(cmds->cmd != NULL)
+
+	token_count = tokenize(cmd, &tokens);
+
+	if(token_count > 0)
 	{
-		size_t cmd_length = strlen(cmds->cmd);
-		if(strncmp(cmds->cmd, cmd, cmd_length - 1) == 0)
+		while(cmds->cmd != NULL)
 		{
-			cmds->func(cmd + cmd_length);
-			found = true;
-			break;
+			if(strcmp(cmds->cmd, tokens[0]) == 0)
+			{
+				cmds->func((const char**)&tokens[1], token_count - 1);
+				found = true;
+				break;
+			}
+			cmds++;
 		}
-		cmds++;
-	}
-	if(!found)
-	{
-		printf("Dieser Befehl ist nicht gueltig\nGib 'help' ein um mehr zu erfahren\n");
-		putchar('\n');
+		if(!found)
+		{
+			printf("Dieser Befehl ist nicht gueltig\nGib 'help' ein um mehr zu erfahren\n");
+			putchar('\n');
+		}
+		for(size_t i = 0; i < token_count; i++)
+			free(tokens[i]);
+		free(tokens);
 	}
 }
