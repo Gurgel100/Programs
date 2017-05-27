@@ -43,6 +43,8 @@ static const command_t commands[] = {
 		{NULL, NULL, NULL}
 };
 
+static int last_exit_code = 0;
+
 int main(int argc, char *argv[])
 {
 	suggestions_t suggestions;
@@ -464,8 +466,29 @@ void command(char *cmd)
 		}
 		if(!found)
 		{
-			printf("Dieser Befehl ist nicht gueltig\nGib 'help' ein um mehr zu erfahren\n");
-			putchar('\n');
+			size_t cmd_size = 0;
+			for(size_t i = 0; i < token_count; i++)
+			{
+				cmd_size += strlen(tokens[i]) + 1;
+			}
+			char *cmd = malloc(cmd_size);
+			cmd[0] = '\0';
+			for(size_t i = 0; i < token_count; i++)
+			{
+				strcat(cmd, tokens[i]);
+				if(i + 1 < token_count)
+					strcat(cmd, " ");
+			}
+			pid_t child = createProcess(NULL, cmd, NULL, NULL, NULL, NULL);
+			if(child == 0)
+			{
+				printf("%s: command not found not found\n\n", tokens[0]);
+			}
+			else
+			{
+				syscall_wait(child, &last_exit_code);
+			}
+			free(cmd);
 		}
 		for(size_t i = 0; i < token_count; i++)
 			free(tokens[i]);
