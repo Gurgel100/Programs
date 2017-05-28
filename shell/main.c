@@ -30,7 +30,6 @@ typedef struct{
 }env_t;
 
 void command(char *cmd);
-double c;
 
 static void help();
 static void info();
