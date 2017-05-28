@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 
 	fclose(fp);
 
-	while(1) syscall_sleep(1000); //Dieser Prozess darf nicht beendet werden
+	while(1) syscall_wait(0, NULL);	//Dieser Prozess darf nicht beendet werden
 }
 
 static char *trim(char *str)
