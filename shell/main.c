@@ -29,14 +29,12 @@ double c;
 
 static void help();
 static void info();
-static void ls(const char**, size_t);
 static void cat(const char**, size_t);
 static void mount(const char**, size_t);
 static void unmount(const char**, size_t);
 static const command_t commands[] = {
 		{"help", "Gibt diese Hilfe aus", help},
 		{"info", "Gibt Systeminformationen aus", info},
-		{"ls", "Listet den Inhalt eines Verzeichnisses auf", ls},
 		{"cat", "Gibt den Inhalt einer Datei aus", cat},
 		{"mount", "Mountet ein Dateisystem", mount},
 		{"umount", "Unmountet ein Dateisystem", unmount},
@@ -153,51 +151,6 @@ static void info()
 	printf("Uptime:          %lums\n"
 			"Speicher:        %lu Bytes\n"
 			"Freier Speicher: %lu Bytes\n", sysinf.Uptime, sysinf.physSpeicher, sysinf.physFree);
-}
-
-static void ls(const char **args, size_t arg_count)
-{
-	struct dirent **dirents;
-
-	if(arg_count == 0)
-	{
-		printf("No arguments specified\n");
-		return;
-	}
-	
-	const char *arg = args[0];
-
-	int size = scandir(arg, &dirents, NULL, alphasort);
-	if(size == -1)
-		printf("Could not list %s\n", arg);
-	else
-	{
-		int i;
-		for(i = 0; i < size; i++)
-		{
-			char type;
-			switch(dirents[i]->d_type)
-			{
-				case DT_DIR:
-					type = 'd';
-				break;
-				case DT_FILE:
-					type = 'f';
-				break;
-				case DT_LINK:
-					type = 'l';
-				break;
-				case DT_DEV:
-					type = 'c';
-				break;
-				default:
-					type = ' ';
-			}
-			printf("%c\t%s\n", type, dirents[i]->d_name);
-			free(dirents[i]);
-		}
-		free(dirents);
-	}
 }
 
 static void cat(const char **args, size_t arg_count)
