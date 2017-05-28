@@ -24,6 +24,11 @@ typedef struct{
 	void (*func)(const char**, size_t);
 }command_t;
 
+typedef struct{
+	char *name;
+	char *value;
+}env_t;
+
 void command(char *cmd);
 double c;
 
@@ -32,12 +37,14 @@ static void info();
 static void cat(const char**, size_t);
 static void mount(const char**, size_t);
 static void unmount(const char**, size_t);
+static void export(const char**, size_t);
 static const command_t commands[] = {
 		{"help", "Gibt diese Hilfe aus", help},
 		{"info", "Gibt Systeminformationen aus", info},
 		{"cat", "Gibt den Inhalt einer Datei aus", cat},
 		{"mount", "Mountet ein Dateisystem", mount},
 		{"umount", "Unmountet ein Dateisystem", unmount},
+		{"export", "Sets a environment variable", export},
 		{NULL, NULL, NULL}
 };
 
@@ -214,6 +221,74 @@ static void unmount(const char **args, size_t arg_count)
 	printf("Trying to unmount %s\n", args[0]);
 	int status = syscall_unmount(args[0]);
 	printf("unmount return value: %i\n", status);
+}
+
+static int env_cmp(const void *a, const void *b)
+{
+	const env_t *left = a;
+	const env_t *right = b;
+
+	return strcmp(left->name, right->name);
+}
+
+static void export(const char **args, size_t arg_count)
+{
+	if(arg_count == 0)
+	{
+		extern char **get_environ();
+		char **e = get_environ();
+		size_t count;
+		for(count = 0; e[count] != NULL; count++);
+		env_t *envs = malloc(count * sizeof(env_t));
+		for(size_t i = 0; i < count; i++)
+		{
+			char *name = e[i];
+			char *val = strchr(name, '=');
+			if(val == NULL || strlen(val + 1) == 0)
+			{
+				envs[i].name = strdup(e[i]);
+				if(val != NULL)
+					envs[i].name[strlen(envs[i].name) - 1] = '\0';
+				envs[i].value = NULL;
+			}
+			else
+			{
+				envs[i].name = malloc(val - name + 1);
+				memcpy(envs[i].name, e[i], val - name);
+				envs[i].name[val - name] = '\0';
+				envs[i].value = strdup(val + 1);
+			}
+		}
+
+		qsort(envs, count, sizeof(env_t), env_cmp);
+
+		for(size_t i = 0; i < count; i++)
+		{
+			printf("%s", envs[i].name);
+			if(envs[i].value != NULL)
+				printf("=%s", envs[i].value);
+			putchar('\n');
+			free(envs[i].name);
+			free(envs[i].value);
+		}
+		free(envs);
+	}
+	else
+	{
+		char *name = strdup(args[0]);
+		char *value = strchr(name, '=');
+
+		if(value == NULL || name >= value)
+		{
+			setenv(name, "", 1);
+		}
+		else
+		{
+			*value = '\0';
+			setenv(name, value + 1, 1);
+		}
+		free(name);
+	}
 }
 
 static const char *get_end_of_env(const char *env)
