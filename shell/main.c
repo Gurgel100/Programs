@@ -29,6 +29,8 @@ typedef struct{
 	char *value;
 }env_t;
 
+extern char **environ;
+
 void command(char *cmd);
 
 static void help();
@@ -234,18 +236,16 @@ static void export(const char **args, size_t arg_count)
 {
 	if(arg_count == 0)
 	{
-		extern char **get_environ();
-		char **e = get_environ();
 		size_t count;
-		for(count = 0; e[count] != NULL; count++);
+		for(count = 0; environ[count] != NULL; count++);
 		env_t *envs = malloc(count * sizeof(env_t));
 		for(size_t i = 0; i < count; i++)
 		{
-			char *name = e[i];
+			char *name = environ[i];
 			char *val = strchr(name, '=');
 			if(val == NULL || strlen(val + 1) == 0)
 			{
-				envs[i].name = strdup(e[i]);
+				envs[i].name = strdup(environ[i]);
 				if(val != NULL)
 					envs[i].name[strlen(envs[i].name) - 1] = '\0';
 				envs[i].value = NULL;
@@ -253,7 +253,7 @@ static void export(const char **args, size_t arg_count)
 			else
 			{
 				envs[i].name = malloc(val - name + 1);
-				memcpy(envs[i].name, e[i], val - name);
+				memcpy(envs[i].name, environ[i], val - name);
 				envs[i].name[val - name] = '\0';
 				envs[i].value = strdup(val + 1);
 			}
