@@ -18,6 +18,11 @@
 #include <assert.h>
 #include "suggestions.h"
 
+#define	CONSOLE_AUTOREFRESH	1
+#define CONSOLE_AUTOSCROLL	2
+#define CONSOLE_RAW			(1 << 2)
+#define CONSOLE_ECHO		(1 << 3)
+
 typedef struct{
 	const char *cmd;
 	const char *desc;
@@ -60,6 +65,8 @@ int main(int argc, char *argv[])
 	printf("Willkommen bei YourOS V0.1\n");
 	putchar('\n');
 	putchar('>');
+	uint64_t flags = syscall_getStreamInfo(0, VFS_INFO_ATTRIBUTES);
+	syscall_setStreamInfo(0, VFS_INFO_ATTRIBUTES, (flags | CONSOLE_RAW) & ~CONSOLE_ECHO);
 	//Einfache ein-/ausgabe
 	while(true)
 	{
@@ -479,6 +486,9 @@ void command(char *cmd)
 
 	token_count = tokenize(cmd, &tokens);
 
+	uint64_t flags = syscall_getStreamInfo(0, VFS_INFO_ATTRIBUTES);
+	syscall_setStreamInfo(0, VFS_INFO_ATTRIBUTES, (flags | CONSOLE_ECHO) & ~CONSOLE_RAW);
+
 	if(token_count > 0)
 	{
 		while(cmds->cmd != NULL)
@@ -521,4 +531,7 @@ void command(char *cmd)
 			free(tokens[i]);
 		free(tokens);
 	}
+
+	flags = syscall_getStreamInfo(0, VFS_INFO_ATTRIBUTES);
+	syscall_setStreamInfo(0, VFS_INFO_ATTRIBUTES, (flags | CONSOLE_RAW) & ~CONSOLE_ECHO);
 }
