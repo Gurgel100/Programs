@@ -50,7 +50,7 @@ static size_t search_path_suggestions(const char *input, suggestions_t *suggesti
 	}
 	else
 	{
-		actual_path = getenv("PATH") ? : "/";
+		actual_path = getenv("PWD") ? : "/";
 		base_prefix = path;
 	}
 
