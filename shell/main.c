@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <syscall.h>
 #include <assert.h>
+#include "history.h"
 #include "suggestions.h"
 
 #define	CONSOLE_AUTOREFRESH	1
@@ -58,15 +59,23 @@ static const command_t commands[] = {
 
 static int last_exit_code = 0;
 
+static void reprint_cmd(char *cmd)
+{
+	printf("\e[u\e[0J%s", cmd);
+}
+
 int main(int argc, char *argv[])
 {
 	suggestions_t suggestions;
 	bool last_character_was_tab = false;
 	size_t cmd_size = 0;
 	char *cmd = calloc(cmd_size + 1, 1);
+	history_t *history = history_init();
+	size_t current_past = 0;
+
 	printf("Willkommen bei YourOS V0.1\n");
 	putchar('\n');
-	putchar('>');
+	fputs(">\e[s", stdout);
 	uint64_t flags = syscall_getStreamInfo(0, VFS_INFO_ATTRIBUTES);
 	syscall_setStreamInfo(0, VFS_INFO_ATTRIBUTES, (flags | CONSOLE_RAW) & ~CONSOLE_ECHO);
 	//Einfache ein-/ausgabe
@@ -75,12 +84,64 @@ int main(int argc, char *argv[])
 		char c = getchar();
 		bool last_tab = last_character_was_tab;
 		last_character_was_tab = false;
+		if(c == '\e')
+		{
+			c = getchar();
+			if(c == '[')
+			{
+				c = getchar();
+				switch(c)
+				{
+					case 'A':	//Up
+					{
+						char *new_cmd = history_get(history, ++current_past - 1);
+						if(new_cmd != NULL)
+						{
+							free(cmd);
+							cmd = new_cmd;
+							cmd_size = strlen(cmd);
+							reprint_cmd(cmd);
+						}
+						else
+						{
+							current_past--;
+						}
+					}
+					break;
+					case 'B':	//Down
+						if(current_past > 1)
+						{
+							char *new_cmd = history_get(history, --current_past - 1);
+							free(cmd);
+							cmd = new_cmd;
+							cmd_size = strlen(cmd);
+						}
+						else if(current_past == 1)
+						{
+							current_past--;
+							cmd = realloc(cmd, 1);
+							cmd[0] = '\0';
+							cmd_size = 0;
+						}
+						reprint_cmd(cmd);
+					break;
+					case 'C':	//Right
+					break;
+					case 'D':	//Left
+					break;
+				}
+				continue;
+			}
+		}
+
 		switch(c)
 		{
 			case '\n':
 				putchar(c);
+				history_add(history, cmd);
+				current_past = 0;
 				command(cmd);
-				putchar('>');
+				fputs(">\e[s", stdout);
 				cmd = realloc(cmd, 1);
 				cmd[0] = '\0';
 				cmd_size = 0;
