@@ -40,6 +40,7 @@ void command(char *cmd);
 
 static void help();
 static void info();
+static void clear();
 static void cat(const char**, size_t);
 static void mount(const char**, size_t);
 static void unmount(const char**, size_t);
@@ -47,6 +48,7 @@ static void export(const char**, size_t);
 static const command_t commands[] = {
 		{"help", "Gibt diese Hilfe aus", help},
 		{"info", "Gibt Systeminformationen aus", info},
+		{"clear", "Clears the screen", clear},
 		{"cat", "Gibt den Inhalt einer Datei aus", cat},
 		{"mount", "Mountet ein Dateisystem", mount},
 		{"umount", "Unmountet ein Dateisystem", unmount},
@@ -166,6 +168,11 @@ static void info()
 	printf("Uptime:          %lums\n"
 			"Speicher:        %lu Bytes\n"
 			"Freier Speicher: %lu Bytes\n", sysinf.Uptime, sysinf.physSpeicher, sysinf.physFree);
+}
+
+static void clear()
+{
+	fputs("\e[2J", stdout);
 }
 
 static void cat(const char **args, size_t arg_count)
