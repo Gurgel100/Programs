@@ -91,5 +91,5 @@ int main(int argc, char *argv[])
 		}
 		free(dirents);
 	}
-	return EXIT_SUCCES;
+	return EXIT_SUCCESS;
 }
