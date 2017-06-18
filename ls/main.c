@@ -85,6 +85,22 @@ int main(int argc, char *argv[])
 					free(filepath);
 				}
 			}
+			else if(dirents[i]->d_type == DT_DIR)
+			{
+				char *dirpath = path_append(arg, dirents[i]->d_name);
+				if(dirpath != NULL)
+				{
+					size_t count = 0;
+					DIR *dir = opendir(dirpath);
+					if(dir != NULL)
+					{
+						while(readdir(dir) != NULL) count++;
+						closedir(dir);
+					}
+					printf("\t%zu", count);
+					free(dirpath);
+				}
+			}
 			putchar('\n');
 			free(dirents[i]);
 		}
