@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
+#include <path.h>
 
 int main(int argc, char *argv[])
 {
@@ -64,11 +65,9 @@ int main(int argc, char *argv[])
 				static const char *units[] = {
 					"B", "KiB", "MiB", "GiB", "TiB"
 				};
-				char *filepath = malloc(strlen(arg) + strlen(dirents[i]->d_name) + 1);
+				char *filepath = path_append(arg, dirents[i]->d_name);
 				if(filepath != NULL)
 				{
-					strcpy(filepath, arg);
-					strcat(filepath, dirents[i]->d_name);
 					FILE *fp = fopen(filepath, "rb");
 					if(fp != NULL)
 					{
