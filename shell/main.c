@@ -138,13 +138,16 @@ int main(int argc, char *argv[])
 		{
 			case '\n':
 				putchar(c);
-				history_add(history, cmd);
-				current_past = 0;
-				command(cmd);
+				if(cmd_size > 0)
+				{
+					history_add(history, cmd);
+					current_past = 0;
+					command(cmd);
+					cmd = realloc(cmd, 1);
+					cmd[0] = '\0';
+					cmd_size = 0;
+				}
 				fputs(">\e[s", stdout);
-				cmd = realloc(cmd, 1);
-				cmd[0] = '\0';
-				cmd_size = 0;
 			break;
 			case '\b':
 				if(cmd_size > 0)
