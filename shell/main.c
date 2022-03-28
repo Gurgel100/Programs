@@ -277,15 +277,17 @@ static void mount(const char **args, size_t arg_count)
 {
 	if(arg_count < 2)
 	{
-		printf("Usage: mount [device] [mountpoint]\n");
+		printf("Usage: mount /path/to/device /path/to/mountpoint [filesystem]\n");
 		return;
 	}
 
 	const char *device = args[0];
 	const char *mountpoint = args[1];
+	const char *filesystem = NULL;
+	if(arg_count > 2)
+		filesystem = args[2];
 
-	printf("Trying to mount %s in %s\n", device, mountpoint);
-	int status = syscall_mount(mountpoint, device);
+	int status = syscall_mount(mountpoint, device, filesystem);
 	printf("mount return value: %i\n", status);
 }
 
